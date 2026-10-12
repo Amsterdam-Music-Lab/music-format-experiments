@@ -1,0 +1,27 @@
+[project]
+name = "comu"
+version = "0.0.1"
+license = "GPL-3.0-or-later"
+authors = [
+  { name="Christoph Finkensiep", email="c.finkensiep@uva.nl" }
+]
+description = "A proof-of-concept library for computational musicology."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.3",
+    "pandas>=3.0.5",
+    "pitchtypes>=0.4.0",
+    "plum>=2.10.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pandas-stubs>=3.0.5.260730",
+    "python-lsp-server[all]>=1.15.0",
+]
