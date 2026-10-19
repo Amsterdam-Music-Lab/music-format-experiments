@@ -2,10 +2,11 @@ import pandas as pd
 import numpy as np
 import numpy.typing as npt
 from .interval_relations import (
-    relates,
     IntervalRelations,
+    PointIntervalRelations,
+    relates,
+    point_relates,
     intersection,
-    in_interval,
     merge_on_intervals,
 )
 import matplotlib.pyplot as plt
@@ -44,14 +45,16 @@ class PointEvents:
         pass  # TODO
 
     def in_interval(
-        self, interval: pd.Interval | pd.arrays.IntervalArray
+        self,
+        interval: pd.Interval | pd.arrays.IntervalArray,
+        by: PointIntervalRelations = "in",
     ) -> bool | npt.NDArray[np.bool]:
         """
         Select all points in a given interval.
 
         Returns a boolean mask.
         """
-        return in_interval(self.events["onset"], interval)
+        return point_relates(self.events["onset"], interval, by)
 
     def merge_with_points(self, right_events: "PointEvents", right_label: str):
         """merge with intersecting point events."""
@@ -125,14 +128,12 @@ class SpanEvents:
 
         return events[~events["span"].array.is_empty].as_spans
 
-    def in_interval(
-        self, interval: pd.Interval, include: IntervalRelations = "intersects"
-    ):
+    def in_interval(self, interval: pd.Interval, by: IntervalRelations = "intersects"):
         """
         Selects all spans in a given interval.
         Returns a boolean mask.
         """
-        return relates(interval, self.events["span"].array, relation=include)
+        return relates(interval, self.events["span"].array, relation=by)
 
     def merge_with_points(self, right_events: PointEvents, right_label: str):
         pass  # TODO

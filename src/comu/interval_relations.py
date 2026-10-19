@@ -6,7 +6,7 @@ from typing import Any
 import operator
 import functools
 
-# Relation Functions
+# Interval Relations
 # ==================
 
 # Allen relations
@@ -256,6 +256,133 @@ def intersection(
         typing.assert_never(a)
 
 
+# Point-Interval Relations
+# ========================
+
+# Relation Functions
+# ------------------
+
+
+def point_before_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert i.closed == "left"
+    return a < i.left
+
+
+def point_starts_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert i.closed == "left"
+    return a == i.left
+
+
+def point_strictly_inside_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    """Returns True if the point is strictly within the interval."""
+    assert i.closed == "left"
+    return a > i.left & a < i.right
+
+
+def point_ends_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert i.closed == "left"
+    return a == i.right
+
+
+def point_after_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert i.closed == "left"
+    return a > i.right
+
+
+def point_in_interval(
+    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert i.closed == "left"
+    return a >= i.left & a < i.right
+
+
+# Working with point-interval relations
+# -------------------------------------
+
+PointIntervalRelation = typing.Literal[
+    "before",
+    "after",
+    "starts",
+    "ends",
+    "in",
+    "strictly_inside",
+]
+
+PointIntervalRelations = PointIntervalRelation | list[PointIntervalRelation]
+
+
+def point_relates(
+    point: Any,
+    interval: pd.Interval | pd.arrays.IntervalArray,
+    relation: PointIntervalRelation | list[PointIntervalRelation],
+) -> bool | npt.NDArray[np.bool]:
+    """Checks whether point is related to interval by relation."""
+    match relation:
+        case "before":
+            return point_before_interval(point, interval)
+        case "after":
+            return point_after_interval(point, interval)
+        case "starts":
+            return point_starts_interval(point, interval)
+        case "ends":
+            return point_ends_interval(point, interval)
+        case "in":
+            return point_in_interval(point, interval)
+        case "strictly_inside":
+            return point_strictly_inside_interval(point, interval)
+        # list of relations:
+        case list() as relations:
+            return functools.reduce(
+                operator.or_,
+                map(lambda rel: point_relates(point, interval, rel), relations),
+                False,
+            )
+        case _ as unreachable:
+            typing.assert_never(unreachable)
+
+
+# Merge Functions
+# ===============
+
+
+def merge_by_relation(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    left: str,
+    right: str,
+    by: typing.Callable,
+    suffixes: tuple[str, str] | tuple[str, None] | tuple[None, str] = (
+        "_x",
+        "_y",
+    ),
+    sort: bool = False,
+) -> pd.DataFrame:
+    """
+    Merge by some relation.
+
+    Performs a cross merge (cartesian product) between df1 and df2.
+    Filters the results by a custom relation 'by'
+    between the columns 'left' from df1 and 'right' from df2.
+    'by' takes two columns and returns a boolean array.
+    """
+    cross = pd.merge(df1, df2, how="cross", suffixes=suffixes, sort=sort)
+    if left == right:
+        left = left + (suffixes[0] or "")
+        right = right + (suffixes[1] or "")
+    filtered = cross[by(cross[left], cross[right])]
+    return pd.DataFrame(filtered)
+
+
 def merge_on_intervals(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
@@ -273,47 +400,56 @@ def merge_on_intervals(
 
     The interval relation 'by' determines how the right events relate to the left.
     """
-    cross = pd.merge(
-        df1,
-        df2,
-        # left_on=left,
-        # right_on=right,
-        how="cross",
-        suffixes=suffixes,
-        sort=sort,
-    )
-    if left == right:
-        left = left + (suffixes[0] or "")
-        right = right + (suffixes[1] or "")
-    filtered = cross[relates(cross[left].array, cross[right].array, by)]
 
-    return pd.DataFrame(filtered)
+    def by_f(left_col, right_col):
+        return relates(left_col.array, right_col.array, by)
+
+    return merge_by_relation(df1, df2, left, right, by_f, suffixes, sort)
+
+    # cross = pd.merge(df1, df2, how="cross", suffixes=suffixes, sort=sort)
+    # if left == right:
+    #     left = left + (suffixes[0] or "")
+    #     right = right + (suffixes[1] or "")
+    # filtered = cross[relates(cross[left].array, cross[right].array, by)]
+
+    # return pd.DataFrame(filtered)
 
 
-def in_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a >= i.left & a < i.right
+def merge_intervals_points(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    left: str,
+    right: str,
+    by: PointIntervalRelations = "in",
+    suffixes: tuple[str, str] | tuple[str, None] | tuple[None, str] = (
+        "_x",
+        "_y",
+    ),
+    sort: bool = False,
+) -> pd.DataFrame:
+    """Merge two dataframes on intervals (left) and points (right)."""
+
+    def by_f(left_col, right_col):
+        return point_relates(right_col, left_col.array, by)
+
+    return merge_by_relation(df1, df2, left, right, by_f, suffixes, sort)
 
 
-# def is_overlapped(
-#     a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
-# ) -> bool | npt.NDArray[np.bool]:
-#     a_open_left = a.closed == "right" or a.closed == "neither"
-#     a_closed_right = a.closed == "right" or a.closed == "both"
-#     b_open_right = b.closed == "left" or b.closed == "neither"
+def merge_points_intervals(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    left: str,
+    right: str,
+    by: PointIntervalRelations = "in",
+    suffixes: tuple[str, str] | tuple[str, None] | tuple[None, str] = (
+        "_x",
+        "_y",
+    ),
+    sort: bool = False,
+) -> pd.DataFrame:
+    """Merge two dataframes on points (left) and left (right)."""
 
-#     # check left boundary
-#     if a_open_left or b_open_right:
-#         fits_left = a.left < b.right  # a(b] a(b) a[b)
-#     else:
-#         fits_left = a.left <= b.right  # a[b]
+    def by_f(left_col, right_col):
+        return point_relates(left_col, right_col.array, by)
 
-#     # check right boundary
-#     if a_closed_right or b_open_right:
-#         fits_right = a.right >= b.right  # b]a] b)a] b)a)
-#     else:
-#         fits_right = a.right > b.right  # b]a)
-
-#     return fits_left & fits_right
+    return merge_by_relation(df1, df2, left, right, by_f, suffixes, sort)
