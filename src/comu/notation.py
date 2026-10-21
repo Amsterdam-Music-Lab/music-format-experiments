@@ -3,6 +3,8 @@ import comu
 import io
 import tomllib
 import pitchtypes as pt
+from typing import Any
+import re
 
 
 def parse_key(key):
@@ -19,25 +21,11 @@ TYPE_PARSERS = {
 }
 
 
-def read_comu(input_str, keep_tokens=True) -> comu.Score:
-    """
-    Read a string in comu notation.
-
-    This is a very rough sketch of a possible notation.
-    """
-
-    # parse header
-    header = {}
-    buf = io.StringIO(input_str.strip())
-    line = buf.readline()
-    if line.startswith("---"):
-        header_lines = []
-        while not (line := buf.readline()).startswith("---"):
-            header_lines.append(line)
-        header = tomllib.loads("\n".join(header_lines))
+def make_header(string: str | None) -> dict[str, Any]:
+    if string:
+        header = tomllib.loads(string)
     else:
-        # reset to beginning
-        buf.seek(0)
+        header = {}
 
     # TODO: this could be a specialized data structure
     if "meta" not in header:
@@ -46,10 +34,70 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
         header["global"] = {}
     if "spines" not in header:
         header["spines"] = {}
+    if "time" not in header:
+        header["time"] = {}
+    if "type" not in header["time"]:
+        header["time"]["type"] = "recip"
+    return header
 
-    # read table
-    df = pd.read_table(buf)
 
+RECIP_REGEX = re.compile(r"^((?P<num>\d+)/)?(?P<denom>\d+)?(?P<dots>\.*)$")
+
+
+def parse_recip(string: str) -> float:
+    """
+    Parses a time value in reciprocal notation.
+
+    This notation is based on the humdrum **recip notation
+    but extends to arbitrary reciprocal fractions.
+
+        `(<num>/)?(<denom>)?\\.*`
+
+    "x" => 1/x
+    "x/y" => x/y
+    "x/" => x
+    "n." => n * 3/2
+
+    Examples:
+        parse_recip("4") -  > 0.25  # quarter note
+        parse_recip("2.")  -> 0.75  # dotted half note
+        parse_recip("3")   -> 0.33  # half-note triplet (1/3 of a whole note)
+        parse_recip("2/.") -> 3     # dotted brevis
+        parse_recip("3/2") -> 1.5   # dotted half note, equivalent to "2."
+    """
+    m = RECIP_REGEX.match(string)
+    if m:
+        print(m.groupdict())
+        num = int(m.group("num") or 1)
+        denom = int(m.group("denom") or 1)
+        dots = len(m.group("dots") or "")
+    else:
+        raise ValueError(f"'{string}' is not a valid time value.")
+    return num / denom * (2 - 0.5**dots)
+
+
+def parse_recip_column(col):
+    """Like parse_recip but applied to an entire column."""
+    parts = col.str.extract(RECIP_REGEX)
+    num = pd.to_numeric(parts["num"]).fillna(1)
+    denom = pd.to_numeric(parts["denom"]).fillna(1)
+    dots = parts["dots"].str.len()
+    return num / denom * (2 - 0.5**dots)
+
+
+def parse_time_column(col: pd.Series, time_type: str):
+    match time_type:
+        case "recip":
+            return parse_recip_column(col)
+        case "numeric":
+            return pd.to_numeric(col)
+        case _:
+            raise ValueError(f"Unknown time type '{time_type}'.")
+
+
+def df_to_score(
+    df: pd.DataFrame, header: dict[str, Any], keep_tokens: bool
+) -> comu.Score:
     # parse time
     df_durations = pd.DataFrame()
     df_data = pd.DataFrame()
@@ -58,7 +106,7 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
             col_parts = df[column].str.extract(r"((?P<time>[^:]*):)?(?P<data>.*)")
             df_data[column] = col_parts["data"]
 
-            durations = pd.to_numeric(col_parts["time"])
+            durations = parse_time_column(col_parts["time"], header["time"]["type"])
             if not durations.isna().all():
                 df_durations[column] = durations
         else:
@@ -118,6 +166,30 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
     return events
 
 
+def read_comu(input_str, keep_tokens=True) -> comu.Score:
+    """
+    Read a string in comu notation.
+
+    This is a very rough sketch of a possible notation.
+    """
+
+    # parse header
+    buf = io.StringIO(input_str.strip())
+    line = buf.readline()
+    if line.startswith("---"):
+        header_lines = []
+        while not (line := buf.readline()).startswith("---"):
+            header_lines.append(line)
+        header = make_header("\n".join(header_lines))
+    else:
+        header = make_header(None)
+        buf.seek(0)
+
+    # read table
+    df = pd.read_table(buf)
+    return df_to_score(df, header, keep_tokens=keep_tokens)
+
+
 EXAMPLE = """
 ---
 [spines.notes]
@@ -126,14 +198,14 @@ type = "pitch"
 type = "section"
 ---
 notes	id(notes)	sections
-1:.	.	2:A
-0.5:C4	n1	.
-1.5:D4	n2	.
-1:.	.	2:volta1
-0.5:B3	n3	.
-1.5:C4	n4	.
-1:.	.	3:volta2
-1:B3	n5	.
+4:.	.	2:A
+8:C4	n1	.
+4.:D4	n2	.
+4:.	.	2:volta1
+8:B3	n3	.
+4.:C4	n4	.
+4:.	.	1.:volta2
+4:B3	n5	.
 2:C4	n6	.
 """
 
