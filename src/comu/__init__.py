@@ -7,11 +7,12 @@ from .interval_relations import (
     relates,
     point_relates,
     intersection,
+    map_interval,
     merge_on_intervals,
 )
 import matplotlib.pyplot as plt
 import typing
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 import warnings
 
 
@@ -43,6 +44,16 @@ class PointEvents:
     def add_to_plot(self, ax, label):
         """Add PointEvents to an axis."""
         pass  # TODO
+
+    def map_time(self, f: Callable) -> "PointEvents":
+        """
+        Maps a function over the time axis of these events.
+
+        The function must take and return an array of time points.
+        """
+        new_onsets = f(self.events["onset"])
+        new_events = self.events.assign(onset=new_onsets)
+        return PointEvents(new_events)
 
     def in_interval(
         self,
@@ -115,6 +126,16 @@ class SpanEvents:
         )
         for _, row in self.events.iterrows():
             ax.text(row["span"].left, label, f" {row.iloc[1]}", va="center")
+
+    def map_time(self, f: Callable) -> "SpanEvents":
+        """
+        Maps a function over the time axis of these events.
+
+        The function must take and return an array of time points.
+        """
+        new_spans = map_interval(f, self.events["span"].array)
+        new_events = self.events.assign(span=new_spans)
+        return SpanEvents(new_events)
 
     def clip(self, to: pd.Interval | pd.arrays.IntervalArray | str):
         """Return the intervals in this collection clipped to another interval."""
@@ -211,6 +232,16 @@ class EventPartition:
         span_events = self._events.assign(span=spans)  # .drop("onset", axis=1)
         return SpanEvents(span_events)
 
+    def map_time(self, f: Callable) -> "EventPartition":
+        """
+        Maps a function over the time axis of these events.
+
+        The function must take and return an array of time points.
+        """
+        new_onsets = f(self.events["onset"])
+        new_events = self.events.assign(onset=new_onsets)
+        return EventPartition(new_events)
+
     def merge_with_points(self, right_events: PointEvents, right_label: str):
         pass  # TODO
 
@@ -235,29 +266,31 @@ class Score(dict[str, Events]):
     Each type of events is represented by an event dataframe.
     """
 
-    constants: dict[str, Any]
+    header: dict[str, Any]
 
     def __init__(
         self,
         init: Optional[dict[str, Events]] = None,
-        constants: dict[str, Any] = {},
+        header: dict[str, Any] = {},
         **kwargs,
     ):
         if init:
             super().__init__(init, **kwargs)
         else:
             super().__init__(**kwargs)
-        self.constants = constants
+        self.header = header
 
     def __repr__(self):
         """Print a score."""
         parts = ["-" + key + ": " + repr(value) for key, value in self.items()]
         return "Score:\n" + "\n".join(parts)
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, **fig_args):
         """Plot a score."""
         if ax is None:
-            fig, ax = plt.subplots()
+            if "figsize" not in fig_args:
+                fig_args["figsize"] = (6.4, 0.6 * len(self))
+            fig, ax = plt.subplots(**fig_args)
         else:
             fig = None
 
@@ -269,6 +302,14 @@ class Score(dict[str, Events]):
     def end(self):
         latest = [events.end for events in self.values()]
         return max(latest)
+
+    def map_time(self, f: Callable) -> "Score":
+        """
+        Maps a function over the time axis of these events.
+
+        The function must take and return an array of time points.
+        """
+        return Score({name: events.map_time(f) for name, events in self.items()})
 
     def merge(
         self,

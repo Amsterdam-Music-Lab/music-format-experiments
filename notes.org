@@ -1,0 +1,39 @@
+* Misc Notes
+
+- possible reference for optimizing relational merges:
+  inequality merges in pyjanitor
+  - https://pyjanitor-devs.github.io/pyjanitor/
+
+* Existing Libraries and references
+
+** Libraries
+
+- dimcat: https://github.com/DCMLab/dimcat
+  - also uses collection-of-dataframes representation
+    - has mechanisms for loading DFs at once
+  - fixed column layout (specialized to MuseScore + harmony files)
+  - no general interval relations or operations
+- CAMAT: https://github.com/egorpol/camat_v2
+  - dataframes, but two specific (notes, events)
+  - fixed columns, specialized to MEI
+  - no general interval relations and operations
+- music21: https://music21.org/
+  - modeled after notation / MusicXML
+  - graph of objects representation
+- partitura: https://github.com/CPJKU/partitura
+  - notation-oriented (MusicXML) + feature extraction for MIR\ML
+  - graph-of-objects
+  - events aligned on time axis
+    - => some time-related operations
+    - part is series of timepoints with pointers to beginning/ending objects
+    - different object types on same axis (per part)
+- humdrumR: https://github.com/Computational-Cognitive-Musicology-Lab/humdrumR/
+  - DF representation (1 DF for all)
+  - humdrum-specific - focussed on tokens and their properties
+
+** Other Prior Art
+
+- Time to Align
+  - paper on alignment of different time axes
+  - complementary to this approach (assumes one common time axis)
+    - use same time axis types

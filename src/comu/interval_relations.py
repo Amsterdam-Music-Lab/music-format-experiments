@@ -1,4 +1,6 @@
 import pandas as pd
+from pandas import Interval
+from pandas.arrays import IntervalArray
 import numpy.typing as npt
 import numpy as np
 import typing
@@ -14,7 +16,7 @@ import functools
 
 
 def precedes(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -22,7 +24,7 @@ def precedes(
 
 
 def meets(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -30,7 +32,7 @@ def meets(
 
 
 def overlaps(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -38,7 +40,7 @@ def overlaps(
 
 
 def starts(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -46,7 +48,7 @@ def starts(
 
 
 def contains_strict(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -54,7 +56,7 @@ def contains_strict(
 
 
 def finishes(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -62,7 +64,7 @@ def finishes(
 
 
 def equal(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -74,7 +76,7 @@ def equal(
 
 
 def contains(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     """constains_strict or is_started or is_finished"""
     assert a.closed == "left"
@@ -83,7 +85,7 @@ def contains(
 
 
 def contains_start(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -91,7 +93,7 @@ def contains_start(
 
 
 def contains_end(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -99,7 +101,7 @@ def contains_end(
 
 
 def intersects(
-    a: pd.Interval | pd.arrays.IntervalArray, b: pd.Interval | pd.arrays.IntervalArray
+    a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert a.closed == "left"
     assert b.closed == "left"
@@ -166,22 +168,19 @@ def converse(ir: IntervalRelations) -> IntervalRelations:
 
 
 def relates(
-    a: pd.Interval | pd.arrays.IntervalArray,
-    b: pd.Interval | pd.arrays.IntervalArray,
+    a: Interval | IntervalArray,
+    b: Interval | IntervalArray,
     relation: IntervalRelation | list[IntervalRelation],
 ) -> bool | npt.NDArray[np.bool]:
     """
     Checks whether interval a is related to interval b by relation.
 
-    Parameters
-    ----------
-    a, b : Interval | IntervalArray
-    relation : IntervalRelation | list[IntervalRelation]
+    Args:
+      a, b: interval or interval array
+      relation: the interval relation(s) to test between `a` and `b`.
 
-    Returns
-    -------
-    bool | np.NDArray[np.bool]
-      A boolean (array) indicating whether a and b are related by relation or not.
+    Returns:
+      A boolean (array) indicating whether `a` and `b` are related by `relation`.
     """
     match relation:
         # Allen relations
@@ -237,25 +236,6 @@ def relates(
             typing.assert_never(unreachable)
 
 
-def intersection(
-    a: pd.Interval | pd.arrays.IntervalArray,
-    b: pd.Interval | pd.arrays.IntervalArray,
-) -> pd.Interval | pd.arrays.IntervalArray:
-    """Returns the intersection of intervals a and b."""
-    assert a.closed == "left"
-    assert b.closed == "left"
-    if isinstance(a, pd.Interval):
-        return pd.Interval(
-            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
-        )
-    elif isinstance(a, pd.arrays.IntervalArray):
-        return pd.arrays.IntervalArray.from_arrays(
-            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
-        )
-    else:
-        typing.assert_never(a)
-
-
 # Point-Interval Relations
 # ========================
 
@@ -264,21 +244,21 @@ def intersection(
 
 
 def point_before_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert i.closed == "left"
     return a < i.left
 
 
 def point_starts_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert i.closed == "left"
     return a == i.left
 
 
 def point_strictly_inside_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     """Returns True if the point is strictly within the interval."""
     assert i.closed == "left"
@@ -286,21 +266,21 @@ def point_strictly_inside_interval(
 
 
 def point_ends_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert i.closed == "left"
     return a == i.right
 
 
 def point_after_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert i.closed == "left"
     return a > i.right
 
 
 def point_in_interval(
-    a: Any, i: pd.Interval | pd.arrays.IntervalArray
+    a: Any, i: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
     assert i.closed == "left"
     return a >= i.left & a < i.right
@@ -323,7 +303,7 @@ PointIntervalRelations = PointIntervalRelation | list[PointIntervalRelation]
 
 def point_relates(
     point: Any,
-    interval: pd.Interval | pd.arrays.IntervalArray,
+    interval: Interval | IntervalArray,
     relation: PointIntervalRelation | list[PointIntervalRelation],
 ) -> bool | npt.NDArray[np.bool]:
     """Checks whether point is related to interval by relation."""
@@ -351,6 +331,68 @@ def point_relates(
             typing.assert_never(unreachable)
 
 
+# Interval and Point Operations
+# =============================
+
+
+def intersection(
+    a: Interval | IntervalArray, b: Interval | IntervalArray
+) -> Interval | IntervalArray:
+    """Returns the intersection of intervals a and b."""
+    assert a.closed == "left"
+    assert b.closed == "left"
+    if isinstance(a, Interval):
+        return Interval(
+            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
+        )
+    elif isinstance(a, IntervalArray):
+        return IntervalArray.from_arrays(
+            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
+        )
+    else:
+        typing.assert_never(a)
+
+
+def map_interval(
+    f: typing.Callable, interval: Interval | IntervalArray
+) -> Interval | IntervalArray:
+    """
+    Maps a function over the start and end points of an interval (array).
+
+    Args:
+      f: A function that acts on the interval's `.left` and `.right` boundaries.
+      interval: The interval that `f` should be applied to.
+
+    Returns:
+      A new interval (array) with updated boundaries.
+    """
+    assert interval.closed == "left"
+    if isinstance(interval, Interval):
+        return Interval(f(interval.left), f(interval.right), closed="left")
+    elif isinstance(interval, IntervalArray):
+        return IntervalArray.from_arrays(
+            f(interval.left), f(interval.right), closed="left"
+        )
+    else:
+        typing.assert_never(interval)
+
+
+def translate(
+    interval: Interval | IntervalArray, offset: Any
+) -> Interval | IntervalArray:
+    """Shift an interval by a given amount."""
+    return map_interval(lambda t: t + offset, interval)
+
+
+def scale(interval: Interval | IntervalArray, factor: Any) -> Interval | IntervalArray:
+    """
+    Scale the time axis of an interval.
+
+    This simply multiplies the boundaries of `interval` by `factor`.
+    """
+    return map_interval(lambda t: t * factor, interval)
+
+
 # Merge Functions
 # ===============
 
@@ -371,9 +413,23 @@ def merge_by_relation(
     Merge by some relation.
 
     Performs a cross merge (cartesian product) between df1 and df2.
-    Filters the results by a custom relation 'by'
-    between the columns 'left' from df1 and 'right' from df2.
-    'by' takes two columns and returns a boolean array.
+    Filters the results by a custom relation `by`
+    between the columns `left` from `df1` and `right` from `df2`.
+
+    Args:
+      df1: The left dataframe.
+      df2: The right dataframe.
+      left: The name of the merge column in `df1`.
+      right: The name of the merge column in `df2`.
+      by: A function that takes the two merge columns and returns a boolean column,
+        indicating whether a row should be included in the merge or not.
+      suffixies: a pair of `str | None`, indicating how columns in df1 or df2
+        should be renamed in the case of conflicts.
+      sort: Indicates whether rows should be sorted by join keys.
+
+    Returns:
+      A dataframe that merges columns from `df1` and `df2`
+      for every pair of rows that satisfies `by`.
     """
     cross = pd.merge(df1, df2, how="cross", suffixes=suffixes, sort=sort)
     if left == right:
@@ -405,14 +461,6 @@ def merge_on_intervals(
         return relates(left_col.array, right_col.array, by)
 
     return merge_by_relation(df1, df2, left, right, by_f, suffixes, sort)
-
-    # cross = pd.merge(df1, df2, how="cross", suffixes=suffixes, sort=sort)
-    # if left == right:
-    #     left = left + (suffixes[0] or "")
-    #     right = right + (suffixes[1] or "")
-    # filtered = cross[relates(cross[left].array, cross[right].array, by)]
-
-    # return pd.DataFrame(filtered)
 
 
 def merge_intervals_points(

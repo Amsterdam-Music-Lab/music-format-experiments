@@ -56,6 +56,13 @@ Examples include:
      - find measure containing onset
      - determine relative position to that measure
      - e.g. determine metrical weight of position under given TS
+- **Monophony check** for notes
+  1. sort by onset
+  2. check that offsets and consecutive onsets don't overlap
+- **Quantization**
+  1. define quantiztion function (time -> time or interval -> interval)
+  2. map over all events
+  - could map to different time axis (e.g. integer indices)
 
 Note that some of these tasks rely on content-type dependent semantics (e.g. time signatures: new segment = downbeat),
 but can all be implemented in terms of generic event operations!
@@ -70,14 +77,14 @@ Here is an example of a proposed notation.
 Comments are marked by # and are not necessarily part of the file format (except the TOML segment).
 
 ```
-# TOML header
-[global]
+--- # TOML header (like markdown with YAML header)
+[meta]
 title = "Piece 1"
 composer = "me"
 encoder = "me"
 
-[global.data] # for values that hold throughout the piece
-key = GM
+[global] # for values that hold throughout the piece
+key = { type="key", value="G-minor" }
 
 [spines.bar]
 type = bar
@@ -98,12 +105,12 @@ to = vo1 # could be implied by name
 type = id
 to = vo2
 
-[spines.timesig] # changes, so not in global.data, could also be spine-dependent
+[spines.timesig] # changes, so not in global, could also be spine-dependent
 type = timesig
 
 [spines.aux]
 type = null
---- # metadata separator (like markdown with YAML header)
+--- # end of header
 bar	aux	vo2	id(vo2)	vo1	id(vo1)	timesig
 =1	.	4:g2	v2n1	4:g4	v1n1	3/4
 .	.	4:b2	v2n2	4:f#4	v1n2	.
