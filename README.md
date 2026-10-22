@@ -1,6 +1,7 @@
 # comu
 
 This package implements some experiments in representing encoding symbolic music data for computational musicology.
+See [examples.ipynb](examples.ipynb) for some examples.
 
 ## Design
 
@@ -8,30 +9,39 @@ This package explores two things:
 - general representations (data structures) of scores that support useful operations
 - a human-readable notation format for encoding scores into these structures.
 
+The motivation for the first point is to define a sound formalism that works as a foundation for computational musicology packages, such as dimcat, CAMAT, or partitura, similar to how [relational algebra](https://en.wikipedia.org/wiki/Relational_algebra) is a common interface for database systems (SQL) and dataframe libraries (pandas, R dataframes, etc.).
+
 ### Data Structures
 
 A piece of music is represented as a collection of events.
-Events are organzied in "spines" (in analogy to humdrum, but without branching paths)
-and can be organized as point events, span events or partitions:
+Events are organzied in series or "spines" (in analogy to humdrum, but without branching paths) and can be organized as point, span, or state events:
 
 - Point events happen at a particular point but don't have a duration.
   Point events can mark particular moments in a piece or markers attached to a particular point of time.
 - Span events have an onset and a duration (and hence an offset).
   Span events can generally overlap and have gaps within a spine.
   Spans encode entities with a temporal extension such as notes, harmonic labels, or formal segments.
-- Partitions segment a piece.
-  Like spans, each segment in a partition has an onset and offset, but a partition does not allow gaps or overlaps.
+- State events partition the piece into several non-overlapping states.
+  Like spans, each segment in a partition has an onset and offset, but state events do not allow gaps or overlaps.
   Partitions can be conceputally reduced to point events by having the events mark the boundaries of a segment.
   They can be used to encode things that are changed at particular points and valid until the next change,
   such as time and key signatures.
-
-These generic event types serve as containers for the actual contents of the score,
-each spine being restricted to a particular event type (e.g. notes, time signature, form markers etc.).
+  
+These generic event types serve as containers for the actual contents of the score, each spine being restricted to a particular event type (e.g. notes, time signature, form markers etc.).
 Taken together, the events and spines are similar to regions and tracks in a DAW or video editor.
+
+Interval spans are generally considered to be closed on the left and open on the right, which means that the onset of an event is part of its span, but the offset is not.
 
 #### Operations
 
-Operations on these structures are mostly based on the temporal information of the events and their relations.
+Operations on these structures are mostly based on the temporal information of the events and their relations:
+
+- interval relations based on something like [Allen's interval algebra](https://en.wikipedia.org/wiki/Allen's_interval_algebra)
+  - analogous relations for points and between points and intervals
+- taking the intersection of two intervals
+- mapping over the time of events (e.g. shifting, scaling, converting to a different unit, quantizing etc.)
+- "merging" (or "joining") series of events based on a relation (e.g., merge notes with the chord labels they intersect with).
+
 These basic operations can be used to implement higher-level tasks.
 Examples include:
 
@@ -63,6 +73,10 @@ Examples include:
   1. define quantiztion function (time -> time or interval -> interval)
   2. map over all events
   - could map to different time axis (e.g. integer indices)
+- **Slicing** the piece at note boundaries
+  1. Collect all note changes (i.e., on- and offsets).
+  2. Sort the break points and create corresponding slice spans.
+  3. Select and clip notes overlapping with each slice.
 
 Note that some of these tasks rely on content-type dependent semantics (e.g. time signatures: new segment = downbeat),
 but can all be implemented in terms of generic event operations!
@@ -127,4 +141,23 @@ bar	aux	vo2	id(vo2)	vo1	id(vo1)	timesig
 
 ## Implementation
 
-WIP
+### Datastructures and Operations
+
+The current prototype implementation is based on (pandas) dataframes.
+Each spine is stored in a separate dataframe with columns depending on its event type (point, span, state) and content type (notes, chord labels, sections, keys etc.).
+Spines of different event types are wrapped in classes (`PointEvents`, `SpanEvents` and `StateEvents`) that provide additional event-type specific methods.
+Point and state event dataframe must have a column `onset` while span events must have a column `span` containing a pandas `IntervalArray` (left-closed).
+The spines are collected in a `Score`, which is a dictionary mapping spine names to their event series and provides extra methods for plotting.
+
+The dataframe representation allows the user to make use of the dataframe API, and event-specific operations are implement on top of these.
+Interval, point, and point-interval relations are implemented as predicates on individual values or arrays (e.g. columns).
+"Merges" are based on panda's "cross" merge (i.e., cartesian product) and filtering by a given relation.
+This naive interpretation should be feasible for single pieces that are not too long, but might be a problem for very long pieces.
+
+Unlike Dimcat and humdrumR, only a single piece is handled by a dataframe, not entire corpora.
+
+### Notation
+
+The notation is designed to be easily parsed with existing TOML and TSV parsers.
+The implementation uses the python `tomllib` module and pandas' `read_table()` together with regular expressions for parsing time notation.
+The raw parsed dataframe is then post-processed into spines by interpreting the time notation and merging dependent columns (such as `vo1` and `id(vo1)` in the example above).

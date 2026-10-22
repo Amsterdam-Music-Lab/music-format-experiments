@@ -9,11 +9,15 @@ from .interval_relations import (
     intersection,
     map_interval,
     merge_on_intervals,
+    merge_intervals_points,
+    merge_points_intervals,
+    merge_by_relation,
 )
 import matplotlib.pyplot as plt
 import typing
 from typing import Optional, Any, Callable
 import warnings
+import operator
 
 
 @pd.api.extensions.register_dataframe_accessor("as_points")
@@ -67,17 +71,38 @@ class PointEvents:
         """
         return point_relates(self.events["onset"], interval, by)
 
-    def merge_with_points(self, right_events: "PointEvents", right_label: str):
+    def merge_with_points(
+        self,
+        right_events: "PointEvents",
+        right_label: str,
+        by: Callable = operator.__eq__,
+    ) -> "PointEvents":
         """merge with intersecting point events."""
-        pass  # TODO
+        merged = merge_by_relation(
+            self.events,
+            right_events.events,
+            "onset",
+            "onset",
+            by=by,
+            suffixes=(None, "_" + right_label),
+        )
+        return PointEvents(merged)
 
     def merge_with_spans(
         self,
         right_events: "SpanEvents",
         right_label: str,
-        by: IntervalRelations = "intersects",
-    ):
-        pass  # TODO
+        by: PointIntervalRelations = "in",
+    ) -> "PointEvents":
+        merged = merge_points_intervals(
+            self.events,
+            right_events.events,
+            "onset",
+            "span",
+            by=by,
+            suffixes=(None, "_" + right_label),
+        )
+        return PointEvents(merged)
 
 
 @pd.api.extensions.register_dataframe_accessor("as_spans")
@@ -156,8 +181,21 @@ class SpanEvents:
         """
         return relates(interval, self.events["span"].array, relation=by)
 
-    def merge_with_points(self, right_events: PointEvents, right_label: str):
-        pass  # TODO
+    def merge_with_points(
+        self,
+        right_events: PointEvents,
+        right_label: str,
+        by: PointIntervalRelations = "in",
+    ) -> "SpanEvents":
+        merged = merge_intervals_points(
+            self.events,
+            right_events.events,
+            "span",
+            "onset",
+            by=by,
+            suffixes=(None, "_" + right_label),
+        )
+        return SpanEvents(merged)
 
     def merge_with_spans(
         self,
@@ -176,10 +214,10 @@ class SpanEvents:
         return SpanEvents(merged)
 
 
-@pd.api.extensions.register_dataframe_accessor("as_partition")
-class EventPartition:
+@pd.api.extensions.register_dataframe_accessor("as_states")
+class StateEvents:
     """
-    An event partition.
+    A series of events representing state changes.
 
     Events are stored in the `events` attribute
     as a dataframe containing at least an `onset` column.
@@ -192,7 +230,7 @@ class EventPartition:
         self._events = events.sort_values("onset")
 
     def __repr__(self):
-        return "<EventPartition>\n" + repr(self.events)
+        return "<StateEvents>\n" + repr(self.events)
 
     @property
     def events(self):
@@ -221,10 +259,14 @@ class EventPartition:
         for _, row in self.events.iterrows():
             ax.text(row["onset"], label, f" {row.iloc[1]}", va="center")
 
+    def onsets(self):
+        """Return a `PointEvents` that contains the beginning of each state."""
+        return PointEvents(self.events)
+
     def spans(self, end=np.inf):
         """
-        Return a `SpanEvents` with the segments of the partition as span events.
-        The endpoint of the last event is `np.inf` by default but can be changed.
+        Return a `SpanEvents` with active time span of each state as a span event.
+        The endpoint of the last state is `np.inf` by default but can be changed.
         """
         onsets = self._events["onset"].values
         offsets = np.append(onsets[1:], end)
@@ -232,7 +274,7 @@ class EventPartition:
         span_events = self._events.assign(span=spans)  # .drop("onset", axis=1)
         return SpanEvents(span_events)
 
-    def map_time(self, f: Callable) -> "EventPartition":
+    def map_time(self, f: Callable) -> "StateEvents":
         """
         Maps a function over the time axis of these events.
 
@@ -240,23 +282,10 @@ class EventPartition:
         """
         new_onsets = f(self.events["onset"])
         new_events = self.events.assign(onset=new_onsets)
-        return EventPartition(new_events)
-
-    def merge_with_points(self, right_events: PointEvents, right_label: str):
-        pass  # TODO
-
-    def merge_with_spans(
-        self,
-        right_events: SpanEvents,
-        right_label: str,
-        by: IntervalRelations = "intersects",
-    ) -> SpanEvents:
-        return self.spans(right_events.end).merge_with_spans(
-            right_events, right_label, by
-        )
+        return StateEvents(new_events)
 
 
-Events = PointEvents | SpanEvents | EventPartition
+Events = PointEvents | SpanEvents | StateEvents
 
 
 class Score(dict[str, Events]):
@@ -310,24 +339,3 @@ class Score(dict[str, Events]):
         The function must take and return an array of time points.
         """
         return Score({name: events.map_time(f) for name, events in self.items()})
-
-    def merge(
-        self,
-        left: str,
-        right: str,
-        by: IntervalRelations = "intersects",
-    ):
-        left_events = self[left]
-        right_events = self[right]
-
-        match right_events:
-            case PointEvents():
-                return left_events.merge_with_points(right_events, right)
-            case SpanEvents():
-                return left_events.merge_with_spans(right_events, right, by)
-            case EventPartition():
-                return left_events.merge_with_spans(
-                    right_events.spans(self.end), right, by
-                )
-            case _ as unreachable:
-                typing.assert_never(unreachable)
