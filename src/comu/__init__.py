@@ -18,6 +18,7 @@ import typing
 from typing import Optional, Any, Callable
 import warnings
 import operator
+from collections import UserDict
 
 
 @pd.api.extensions.register_dataframe_accessor("as_points")
@@ -29,17 +30,19 @@ class PointEvents:
     as a dataframe containing at least an `onset` column.
     """
 
+    name: str | None
     events: pd.DataFrame
 
-    def __init__(self, events: pd.DataFrame):
+    def __init__(self, events: pd.DataFrame, name: str | None = None):
         """Create PointEvents from a DataFrame."""
         if "onset" not in events.columns:
             raise AttributeError("Must have 'onset' column.")
         self.events = events
+        self.name = name
 
     def __repr__(self):
         """Print PointEvents."""
-        return "<PointEvents>\n" + repr(self.events)
+        return f"<PointEvents> {self.name or ''}\n" + repr(self.events)
 
     @property
     def end(self):
@@ -74,10 +77,11 @@ class PointEvents:
     def merge_with_points(
         self,
         right_events: "PointEvents",
-        right_label: str,
+        right_label: str | None = None,
         by: Callable = operator.__eq__,
     ) -> "PointEvents":
         """merge with intersecting point events."""
+        right_label = right_label or right_events.name or "right"
         merged = merge_by_relation(
             self.events,
             right_events.events,
@@ -91,9 +95,10 @@ class PointEvents:
     def merge_with_spans(
         self,
         right_events: "SpanEvents",
-        right_label: str,
+        right_label: str | None = None,
         by: PointIntervalRelations = "in",
     ) -> "PointEvents":
+        right_label = right_label or right_events.name or "right"
         merged = merge_points_intervals(
             self.events,
             right_events.events,
@@ -114,9 +119,10 @@ class SpanEvents:
     as a dataframe containing at least a `span` column that contains intervals.
     """
 
+    name: str | None
     events: pd.DataFrame
 
-    def __init__(self, events: pd.DataFrame):
+    def __init__(self, events: pd.DataFrame, name: str | None = None):
         # ensure that the span column is an IntervalArray with right-open intervals
         if "span" not in events.columns:
             raise AttributeError("Must have 'span' column.")
@@ -126,18 +132,20 @@ class SpanEvents:
                 span=pd.arrays.IntervalArray(events["span"], closed="left")
             )
         self.events = events
+        self.name = name
 
     def __repr__(self):
-        return "<SpanEvents>\n" + repr(self.events)
+        return f"<SpanEvents> {self.name or ''}\n" + repr(self.events)
 
     @property
     def end(self):
         return self.events["span"].array.right.max()
 
-    def add_to_plot(self, ax: plt.Axes, label: str):
+    def add_to_plot(self, ax: plt.Axes, label: str | None):
         """
         Add these events to a plot.
         """
+        label = label or self.name
         segments = self.events["span"].array
         color = ax._get_lines.get_next_color()
         ax.broken_barh(
@@ -184,9 +192,10 @@ class SpanEvents:
     def merge_with_points(
         self,
         right_events: PointEvents,
-        right_label: str,
+        right_label: str | None = None,
         by: PointIntervalRelations = "in",
     ) -> "SpanEvents":
+        right_label = right_label or right_events.name or "right"
         merged = merge_intervals_points(
             self.events,
             right_events.events,
@@ -200,9 +209,10 @@ class SpanEvents:
     def merge_with_spans(
         self,
         right_events: "SpanEvents",
-        right_label: str,
+        right_label: str | None = None,
         by: IntervalRelations = "intersects",
     ) -> "SpanEvents":
+        right_label = right_label or right_events.name or "right"
         merged = merge_on_intervals(
             self.events,
             right_events.events,
@@ -224,13 +234,17 @@ class StateEvents:
     Events are interpreted to last from their own onset until the next onset.
     """
 
-    def __init__(self, events: pd.DataFrame):
+    name: str | None
+    _events: pd.DataFrame
+
+    def __init__(self, events: pd.DataFrame, name: str | None = None):
         if "onset" not in events.columns:
             raise AttributeError("Must have 'onset' column.")
         self._events = events.sort_values("onset")
+        self.name = name
 
     def __repr__(self):
-        return "<StateEvents>\n" + repr(self.events)
+        return f"<StateEvents> {self.name or ''}\n" + repr(self.events)
 
     @property
     def events(self):
@@ -272,7 +286,7 @@ class StateEvents:
         offsets = np.append(onsets[1:], end)
         spans = pd.arrays.IntervalArray.from_arrays(onsets, offsets, closed="left")
         span_events = self._events.assign(span=spans)  # .drop("onset", axis=1)
-        return SpanEvents(span_events)
+        return SpanEvents(span_events, self.name)
 
     def map_time(self, f: Callable) -> "StateEvents":
         """
@@ -282,13 +296,25 @@ class StateEvents:
         """
         new_onsets = f(self.events["onset"])
         new_events = self.events.assign(onset=new_onsets)
-        return StateEvents(new_events)
+        return StateEvents(new_events, self.name)
 
 
 Events = PointEvents | SpanEvents | StateEvents
 
 
-class Score(dict[str, Events]):
+E = typing.TypeVar("E", bound=Events)
+
+
+def _set_name(events: E, name: str) -> E:
+    """
+    Sets the `name` attribute for an event series.
+
+    Returns a new event series of the same time, not modifying the input.
+    """
+    return type(events)(events.events, name)
+
+
+class Score(UserDict[str, Events]):
     """
     An extremely simplified representation of a score.
 
@@ -301,13 +327,20 @@ class Score(dict[str, Events]):
         self,
         init: Optional[dict[str, Events]] = None,
         header: dict[str, Any] = {},
-        **kwargs,
+        **kwargs: Events,
     ):
         if init:
             super().__init__(init, **kwargs)
         else:
             super().__init__(**kwargs)
         self.header = header
+
+    def __setitem__(self, key, value):
+        if isinstance(value, Events):
+            value = _set_name(value, key)
+            super().__setitem__(key, value)
+        else:
+            raise TypeError(f"A score cannot store spines of type f{type(value)}")
 
     def __repr__(self):
         """Print a score."""
@@ -339,3 +372,10 @@ class Score(dict[str, Events]):
         The function must take and return an array of time points.
         """
         return Score({name: events.map_time(f) for name, events in self.items()})
+
+    # TODO:
+    # implement a general merge method as a more convenient merging interface
+    # - dispatches on spine types
+    # - knows spine names and thus `right_label`
+    # - type-dependent default relations
+    # - conversion from states to spans/points
