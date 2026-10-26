@@ -31,9 +31,25 @@
   - DF representation (1 DF for all)
   - humdrum-specific - focussed on tokens and their properties
 
+- JAMS: https://github.com/marl/jams
+- BOPP: https://github.com/bmcfee/bopp/
+  - extent + payload (but also for 2d/3d media, e.g. sheet music).
+  - mostly for annotations
+
 ** Other Prior Art
 
 - Time to Align
   - paper on alignment of different time axes
   - complementary to this approach (assumes one common time axis)
     - use same time axis types
+
+** Interval implementations
+
+- https://github.com/AlexandreDecan/portion
+  - very complete but not vectorized
+- https://pypi.org/project/pandas-intervals/
+  - pandas accessor
+  - requires special column names
+- https://pyinterval.readthedocs.io/en/latest/index.html
+- https://github.com/marcodeangelis/intervals
+  - not very up-to-date?
