@@ -100,6 +100,22 @@ def contains_end(
     return (a.left < b.right) & (a.right >= b.right)
 
 
+def starts_with(
+    a: Interval | IntervalArray, b: Interval | IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert a.closed == "left"
+    assert b.closed == "left"
+    return a.left == b.left
+
+
+def ends_with(
+    a: Interval | IntervalArray, b: Interval | IntervalArray
+) -> bool | npt.NDArray[np.bool]:
+    assert a.closed == "left"
+    assert b.closed == "left"
+    return a.right == b.right
+
+
 def intersects(
     a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> bool | npt.NDArray[np.bool]:
@@ -134,6 +150,8 @@ IntervalRelation = typing.Literal[
     "starts_in",
     "contains_end",
     "ends_in",
+    "starts_with",  # = beginnings coincide (starts v equal v is_started)
+    "ends_with",  # = ends coincide (ends v equal v is_ended)
 ]
 
 IntervalRelations = IntervalRelation | list[IntervalRelation]
@@ -152,6 +170,8 @@ CONVERSE_PAIRS: list[tuple[IntervalRelation, IntervalRelation]] = [
     ("contains", "during"),
     ("contains_start", "starts_in"),
     ("ends_in", "contains_end"),
+    ("starts_with", "starts_with"),
+    ("ends_with", "ends_with"),
 ]
 CONVERSES: dict[IntervalRelation, IntervalRelation] = {
     a: b for x, y in CONVERSE_PAIRS for a, b in [(x, y), (y, x)]
