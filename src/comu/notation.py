@@ -101,8 +101,11 @@ def df_to_score(
     # parse time
     df_durations = pd.DataFrame()
     df_data = pd.DataFrame()
+    explicit_time: pd.Series | None = None
     for column in df.columns:
-        if isinstance(df[column].dtype, pd.StringDtype) and ("(" not in column):
+        if column == "time":
+            explicit_time = parse_time_column(df["time"], header["time"]["type"])
+        elif isinstance(df[column].dtype, pd.StringDtype) and ("(" not in column):
             col_parts = df[column].str.extract(r"((?P<time>[^:]*):)?(?P<data>.*)")
             df_data[column] = col_parts["data"]
 
@@ -113,12 +116,14 @@ def df_to_score(
             df_data[column] = df[column]
 
     # determine onsets:
-    record_durations = df_durations.min(axis=1)
+    record_durations = (
+        explicit_time if explicit_time is not None else df_durations.min(axis=1)
+    )
     onsets = record_durations.cumsum() - record_durations
 
     # collect primary columns as event series
-    primary_columns = [c for c in df.columns if "(" not in c]
-    events = comu.Score(header=header)
+    primary_columns = [c for c in df.columns if ("(" not in c) and (c != "time")]
+    score = comu.Score(header=header)
 
     for col in primary_columns:
         data = df_data[col]
@@ -127,6 +132,7 @@ def df_to_score(
 
         # if type is known, parse tokens
         if col in header["spines"] and "type" in header["spines"][col]:
+            # try to parse
             col_type = header["spines"][col]["type"]
             if col_type in TYPE_PARSERS:
                 parser = TYPE_PARSERS[col_type]
@@ -134,6 +140,8 @@ def df_to_score(
                 event_df = pd.concat([event_df, parsed], axis=1)
             else:
                 event_df[col_type] = event_df["token"]
+
+            # drop tokens column?
             if not keep_tokens:
                 event_df = event_df.drop("token", axis=1)
 
@@ -157,13 +165,13 @@ def df_to_score(
                     onsets[mask].index,
                 ),
             )
-            events[col] = comu.SpanEvents(event_df.reset_index(drop=True))
+            score[col] = comu.SpanEvents(event_df.reset_index(drop=True))
         else:
             # has no duration: point events
             event_df.insert(0, "onset", onsets[mask])
-            events[col] = comu.PointEvents(event_df.reset_index(drop=True))
+            score[col] = comu.PointEvents(event_df.reset_index(drop=True))
 
-    return events
+    return score
 
 
 def read_comu(input_str, keep_tokens=True) -> comu.Score:
@@ -186,7 +194,7 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
         buf.seek(0)
 
     # read table
-    df = pd.read_table(buf)
+    df = pd.read_table(buf, dtype={"time": str})
     return df_to_score(df, header, keep_tokens=keep_tokens)
 
 
@@ -207,6 +215,21 @@ notes	id(notes)	sections
 4:.	.	1.:volta2
 4:B3	n5	.
 2:C4	n6	.
+"""
+
+# This example has an explicit time column.
+# Note how the first row has time 8 (= 1/8)
+# but the first note has duration 4 (= 1/4).
+# This means that the second note (duration 4. = 3/8)
+# overlaps with the first note by 1/8.
+EXAMPLE_EXPLICIT_TIME = """
+---
+spines.notes.type = "pitch"
+---
+time	notes
+8	4:C4
+4.	4.:C4
+4	4:C4
 """
 
 
