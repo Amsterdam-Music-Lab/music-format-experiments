@@ -1,10 +1,13 @@
 import pandas as pd
+from pandas_fractions import FractionArray
+import numpy as np
 import comu
 import io
 import tomllib
 import pitchtypes as pt
 from typing import Any
 import re
+from fractions import Fraction
 
 
 def parse_key(key):
@@ -44,7 +47,7 @@ def make_header(string: str | None) -> dict[str, Any]:
 RECIP_REGEX = re.compile(r"^((?P<num>\d+)/)?(?P<denom>\d+)?(?P<dots>\.*)$")
 
 
-def parse_recip(string: str) -> float:
+def parse_recip(string: str) -> Fraction:
     """
     Parses a time value in reciprocal notation.
 
@@ -73,16 +76,18 @@ def parse_recip(string: str) -> float:
         dots = len(m.group("dots") or "")
     else:
         raise ValueError(f"'{string}' is not a valid time value.")
-    return num / denom * (2 - 0.5**dots)
+    return Fraction(num, denom) * (2 - Fraction(1, 2**dots))
 
 
-def parse_recip_column(col):
+def parse_recip_column(col) -> FractionArray:
     """Like parse_recip but applied to an entire column."""
     parts = col.str.extract(RECIP_REGEX)
-    num = pd.to_numeric(parts["num"]).fillna(1)
-    denom = pd.to_numeric(parts["denom"]).fillna(1)
+    num = parts["num"].fillna("1").astype("int")
+    denom = parts["denom"].fillna("1").astype("int")
     dots = parts["dots"].str.len()
-    return num / denom * (2 - 0.5**dots)
+    base = FractionArray(num, denom)
+    dot_factor = 2 - Fraction(1, 2) ** dots
+    return base * dot_factor
 
 
 def parse_time_column(col: pd.Series, time_type: str):
@@ -153,13 +158,14 @@ def df_to_score(
         # add time and create events object
         if col in df_durations.columns:
             # has duration: span events
+            offsets = onsets[mask] + df_durations[col][mask]
             event_df.insert(
                 0,
                 "span",
                 pd.Series(
                     pd.arrays.IntervalArray.from_arrays(
-                        onsets[mask],
-                        onsets[mask] + df_durations[col][mask],
+                        onsets[mask].astype("float"),
+                        offsets.astype("float"),
                         closed="left",
                     ),
                     onsets[mask].index,
@@ -226,10 +232,10 @@ EXAMPLE_EXPLICIT_TIME = """
 ---
 spines.notes.type = "pitch"
 ---
-time	notes
-8	4:C4
-4.	4.:C4
-4	4:C4
+time	notes	mark
+8	4:C4	A
+4.	4.:C4	.
+4	4:C4	B
 """
 
 
