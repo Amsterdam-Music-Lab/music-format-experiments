@@ -290,8 +290,9 @@ def merge_by_relation(
       for every pair of rows that satisfies `by`.
     """
     cross = pd.merge(df1, df2, how="cross", suffixes=suffixes, sort=sort)
-    if left == right:
+    if left in df2.columns:
         left = left + (suffixes[0] or "")
+    if right in df1.columns:
         right = right + (suffixes[1] or "")
     filtered = cross[by(cross[left], cross[right])]
     return pd.DataFrame(filtered)

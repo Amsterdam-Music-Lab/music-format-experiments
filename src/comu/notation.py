@@ -71,7 +71,6 @@ def parse_recip(string: str) -> Fraction:
     """
     m = RECIP_REGEX.match(string)
     if m:
-        print(m.groupdict())
         num = int(m.group("num") or 1)
         denom = int(m.group("denom") or 1)
         dots = len(m.group("dots") or "")
@@ -112,10 +111,11 @@ def df_to_score(
         if column == "time":
             explicit_time = parse_time_column(df["time"], header["time"]["type"])
         elif isinstance(df[column].dtype, pd.StringDtype) and ("(" not in column):
-            col_parts = df[column].str.extract(r"((?P<time>[^:]*):)?(?P<data>.*)")
+            col_parts = df[column].str.extract(r"((?P<dur>[^:]*):)?(?P<data>.*)")
             df_data[column] = col_parts["data"]
 
-            durations = parse_time_column(col_parts["time"], header["time"]["type"])
+            durations_str = col_parts["dur"].replace("", None)
+            durations = parse_time_column(durations_str, header["time"]["type"])
             if not durations.isna().all():
                 df_durations[column] = durations
         else:

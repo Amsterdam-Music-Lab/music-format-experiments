@@ -1,0 +1,27 @@
+---
+[meta]
+name = "Meter Example"
+author = "Christoph Finkensiep"
+
+[spines]
+---
+notes_a	meter_a	notes_b	meter_b	comment
+4:x	:2+2/4:4	4:x	:3/4:4	up
+4:x	.	4:x	.	down a+b
+4:x	.	4:x	.	.
+4:x	.	4:x	.	.
+4:x	.	4:x	.	b
+4:x	.	4:x	.	a
+4:x	.	4:x	.	.
+4:x	.	4:x	.	b
+4:x	.	4:x	.	.
+4:x	.	4:x	.	a
+4:x	.	4:x	.	b
+4:x	.	4:x	.	.
+4:x	.	4:x	.	.
+4:x	:3+2/4	4:x	:2+3/4	a+b, new meters
+4:x	.	4:x	.	.
+4:x	.	4:x	.	.
+4:x	.	4:x	.	.
+4:x	.	4:x	.	.
+4:x	.	4:x	.	a+b

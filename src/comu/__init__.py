@@ -50,7 +50,18 @@ class PointEvents:
 
     def add_to_plot(self, ax, label):
         """Add PointEvents to an axis."""
-        pass  # TODO
+        onsets = self.events["onset"]
+        color = ax._get_lines.get_next_color()
+        ax.broken_barh(
+            [(onset, 0) for onset in onsets],
+            (label, 0.8),
+            align="center",
+            edgecolor=color,
+            alpha=0.7,
+            lw=2,
+        )
+        for _, row in self.events.iterrows():
+            ax.text(row["onset"], label, f" {row.iloc[1]}", va="center")
 
     def map_time(self, f: Callable) -> "PointEvents":
         """
@@ -154,6 +165,11 @@ class SpanEvents:
         )
         for _, row in self.events.iterrows():
             ax.text(row["span"].left, label, f" {row.iloc[1]}", va="center")
+
+    def onsets(self) -> PointEvents:
+        return PointEvents(
+            self.events.assign(onset=self.events["span"].array.left), self.name
+        )
 
     def map_time(self, f: Callable) -> "SpanEvents":
         """
