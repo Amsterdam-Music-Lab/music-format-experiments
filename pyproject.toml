@@ -13,6 +13,7 @@ dependencies = [
     "numpy>=2.5.3",
     "pandas>=3.0.5",
     "pandas-fractions",
+    "pandas-interval-types",
     "pitchtypes>=0.4.0",
     "plum>=2.10.1",
 ]
@@ -35,3 +36,4 @@ dev = [
 
 [tool.uv.sources]
 pandas-fractions = { git = "https://github.com/Amsterdam-Music-Lab/pandas-fractions" }
+pandas-interval-types = { git = "https://github.com/Amsterdam-Music-Lab/pandas-interval-types" }

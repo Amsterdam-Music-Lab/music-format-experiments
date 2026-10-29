@@ -1,13 +1,14 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
+import pandas_interval_types as pi
+from pandas_interval_types import Interval, IntervalArray
 from .interval_relations import (
     IntervalRelations,
     PointIntervalRelations,
     relates,
     point_relates,
     intersection,
-    map_interval,
     merge_on_intervals,
     merge_intervals_points,
     merge_points_intervals,
@@ -16,7 +17,6 @@ from .interval_relations import (
 import matplotlib.pyplot as plt
 import typing
 from typing import Optional, Any, Callable
-import warnings
 import operator
 from collections import UserDict
 
@@ -64,7 +64,7 @@ class PointEvents:
 
     def in_interval(
         self,
-        interval: pd.Interval | pd.arrays.IntervalArray,
+        interval: Interval | IntervalArray,
         by: PointIntervalRelations = "in",
     ) -> bool | npt.NDArray[np.bool]:
         """
@@ -126,11 +126,6 @@ class SpanEvents:
         # ensure that the span column is an IntervalArray with right-open intervals
         if "span" not in events.columns:
             raise AttributeError("Must have 'span' column.")
-        if events["span"].array.closed != "left":
-            warnings.warn("Intervals must be left-closed! Converting to left-closed.")
-            events = events.assign(
-                span=pd.arrays.IntervalArray(events["span"], closed="left")
-            )
         self.events = events
         self.name = name
 
@@ -166,11 +161,11 @@ class SpanEvents:
 
         The function must take and return an array of time points.
         """
-        new_spans = map_interval(f, self.events["span"].array)
+        new_spans = self.events["span"].array.map_time(f)
         new_events = self.events.assign(span=new_spans)
         return SpanEvents(new_events)
 
-    def clip(self, to: pd.Interval | pd.arrays.IntervalArray | str):
+    def clip(self, to: pi.Interval | pi.IntervalArray | str):
         """Return the intervals in this collection clipped to another interval."""
         if isinstance(to, str):
             interval = self.events[to].array
@@ -180,9 +175,13 @@ class SpanEvents:
         clipped_spans = intersection(self.events["span"].array, interval)
         events = self.events.assign(span=clipped_spans)
 
-        return events[~events["span"].array.is_empty].as_spans
+        return events.as_spans
 
-    def in_interval(self, interval: pd.Interval, by: IntervalRelations = "intersects"):
+    def in_interval(
+        self,
+        interval: pi.Interval | pi.IntervalArray,
+        by: IntervalRelations = "intersects",
+    ):
         """
         Selects all spans in a given interval.
         Returns a boolean mask.
@@ -284,7 +283,7 @@ class StateEvents:
         """
         onsets = self._events["onset"].values
         offsets = np.append(onsets[1:], end)
-        spans = pd.arrays.IntervalArray.from_arrays(onsets, offsets, closed="left")
+        spans = IntervalArray.from_arrays(onsets, offsets)
         span_events = self._events.assign(span=spans)  # .drop("onset", axis=1)
         return SpanEvents(span_events, self.name)
 
@@ -340,7 +339,7 @@ class Score(UserDict[str, Events]):
             value = _set_name(value, key)
             super().__setitem__(key, value)
         else:
-            raise TypeError(f"A score cannot store spines of type f{type(value)}")
+            raise TypeError(f"A score cannot store spines of type {type(value)}")
 
     def __repr__(self):
         """Print a score."""

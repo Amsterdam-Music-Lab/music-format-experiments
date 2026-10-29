@@ -1,6 +1,4 @@
 import pandas as pd
-from pandas import Interval
-from pandas.arrays import IntervalArray
 import numpy.typing as npt
 import numpy as np
 import typing
@@ -8,124 +6,31 @@ from typing import Any
 import operator
 import functools
 
+from pandas_interval_types import Interval, IntervalArray
+from pandas_interval_types.interval_relations import (
+    precedes,
+    meets,
+    overlaps,
+    starts,
+    contains_strict,
+    finishes,
+    equal,
+    contains,
+    contains_start,
+    contains_end,
+    starts_with,
+    ends_with,
+    intersects,
+    point_before_interval,
+    point_starts_interval,
+    point_strictly_inside_interval,
+    point_ends_interval,
+    point_after_interval,
+    point_in_interval,
+)
+
 # Interval Relations
 # ==================
-
-# Allen relations
-# ---------------
-
-
-def precedes(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return a.right < b.left
-
-
-def meets(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return a.right == b.left
-
-
-def overlaps(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left < b.left) & (a.right > b.left) & (a.right < b.right)
-
-
-def starts(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left == b.left) & (a.right < b.right)
-
-
-def contains_strict(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left < b.left) & (a.right > b.right)
-
-
-def finishes(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left > b.left) & (a.right == b.right)
-
-
-def equal(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left == a.left) & (a.right == a.right) & (a.closed == b.closed)
-
-
-# Extra relations
-# ---------------
-
-
-def contains(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    """constains_strict or is_started or is_finished"""
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left <= b.left) & (a.right >= b.right)
-
-
-def contains_start(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left <= b.left) & (a.right > b.left)
-
-
-def contains_end(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.left < b.right) & (a.right >= b.right)
-
-
-def starts_with(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return a.left == b.left
-
-
-def ends_with(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return a.right == b.right
-
-
-def intersects(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert a.closed == "left"
-    assert b.closed == "left"
-    return (a.right > b.left) & (b.right > a.left)
-
-
-# Working with Relations
-# ----------------------
 
 IntervalRelation = typing.Literal[
     # Allen relations:
@@ -245,6 +150,10 @@ def relates(
             return contains_end(a, b)
         case "ends_in":
             return contains_end(b, a)
+        case "starts_with":
+            return starts_with(a, b)
+        case "ends_with":
+            return ends_with(a, b)
         # list of relations:
         case list() as relations:
             return functools.reduce(
@@ -258,53 +167,6 @@ def relates(
 
 # Point-Interval Relations
 # ========================
-
-# Relation Functions
-# ------------------
-
-
-def point_before_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a < i.left
-
-
-def point_starts_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a == i.left
-
-
-def point_strictly_inside_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    """Returns True if the point is strictly within the interval."""
-    assert i.closed == "left"
-    return a > i.left & a < i.right
-
-
-def point_ends_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a == i.right
-
-
-def point_after_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a > i.right
-
-
-def point_in_interval(
-    a: Any, i: Interval | IntervalArray
-) -> bool | npt.NDArray[np.bool]:
-    assert i.closed == "left"
-    return a >= i.left & a < i.right
-
 
 # Working with point-interval relations
 # -------------------------------------
@@ -355,62 +217,38 @@ def point_relates(
 # =============================
 
 
+# TODO:
+# - move to pandas_interval_types
+# - handle empty-interval case correctly
+# - handle broadcasting types correctly (currently only checks a)
 def intersection(
     a: Interval | IntervalArray, b: Interval | IntervalArray
 ) -> Interval | IntervalArray:
     """Returns the intersection of intervals a and b."""
-    assert a.closed == "left"
-    assert b.closed == "left"
     if isinstance(a, Interval):
-        return Interval(
-            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
-        )
+        return Interval(np.maximum(a.left, b.left), np.minimum(a.right, b.right))
     elif isinstance(a, IntervalArray):
         return IntervalArray.from_arrays(
-            np.maximum(a.left, b.left), np.minimum(a.right, b.right), closed="left"
+            np.maximum(a.left, b.left), np.minimum(a.right, b.right)
         )
     else:
         typing.assert_never(a)
 
 
-def map_interval(
-    f: typing.Callable, interval: Interval | IntervalArray
-) -> Interval | IntervalArray:
-    """
-    Maps a function over the start and end points of an interval (array).
-
-    Args:
-      f: A function that acts on the interval's `.left` and `.right` boundaries.
-      interval: The interval that `f` should be applied to.
-
-    Returns:
-      A new interval (array) with updated boundaries.
-    """
-    assert interval.closed == "left"
-    if isinstance(interval, Interval):
-        return Interval(f(interval.left), f(interval.right), closed="left")
-    elif isinstance(interval, IntervalArray):
-        return IntervalArray.from_arrays(
-            f(interval.left), f(interval.right), closed="left"
-        )
-    else:
-        typing.assert_never(interval)
+# def translate(
+#     interval: Interval | IntervalArray, offset: Any
+# ) -> Interval | IntervalArray:
+#     """Shift an interval by a given amount."""
+#     return map_interval(lambda t: t + offset, interval)
 
 
-def translate(
-    interval: Interval | IntervalArray, offset: Any
-) -> Interval | IntervalArray:
-    """Shift an interval by a given amount."""
-    return map_interval(lambda t: t + offset, interval)
+# def scale(interval: Interval | IntervalArray, factor: Any) -> Interval | IntervalArray:
+#     """
+#     Scale the time axis of an interval.
 
-
-def scale(interval: Interval | IntervalArray, factor: Any) -> Interval | IntervalArray:
-    """
-    Scale the time axis of an interval.
-
-    This simply multiplies the boundaries of `interval` by `factor`.
-    """
-    return map_interval(lambda t: t * factor, interval)
+#     This simply multiplies the boundaries of `interval` by `factor`.
+#     """
+#     return map_interval(lambda t: t * factor, interval)
 
 
 # Merge Functions

@@ -1,5 +1,6 @@
 import pandas as pd
 from pandas_fractions import FractionArray
+from pandas_interval_types import Interval, IntervalArray
 import numpy as np
 import comu
 import io
@@ -163,11 +164,7 @@ def df_to_score(
                 0,
                 "span",
                 pd.Series(
-                    pd.arrays.IntervalArray.from_arrays(
-                        onsets[mask].astype("float"),
-                        offsets.astype("float"),
-                        closed="left",
-                    ),
+                    IntervalArray.from_arrays(onsets[mask], offsets),
                     onsets[mask].index,
                 ),
             )
