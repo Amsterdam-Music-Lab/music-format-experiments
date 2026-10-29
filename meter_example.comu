@@ -4,6 +4,10 @@ name = "Meter Example"
 author = "Christoph Finkensiep"
 
 [spines]
+notes_a.meter = "meter_a"
+notes_b.meter = "meter_b"
+meter_a.type = "meter"
+meter_b.type = "meter"
 ---
 notes_a	meter_a	notes_b	meter_b	comment
 4:x	:2+2/4:4	4:x	:3/4:4	up
