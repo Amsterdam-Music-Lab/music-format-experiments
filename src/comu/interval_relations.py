@@ -1,32 +1,33 @@
-import pandas as pd
-import numpy.typing as npt
-import numpy as np
+import functools
+import operator
 import typing
 from typing import Any
-import operator
-import functools
 
+import numpy as np
+import numpy.typing as npt
+import pandas as pd
 from pandas_interval_types import Interval, IntervalArray
 from pandas_interval_types.interval_relations import (
-    precedes,
+    contains,
+    contains_end,
+    contains_start,
+    contains_strict,
+    ends_with,
+    equal,
+    finishes,
+    intersection,  # noqa: F401
+    intersects,
     meets,
     overlaps,
-    starts,
-    contains_strict,
-    finishes,
-    equal,
-    contains,
-    contains_start,
-    contains_end,
-    starts_with,
-    ends_with,
-    intersects,
+    point_after_interval,
     point_before_interval,
+    point_ends_interval,
+    point_in_interval,
     point_starts_interval,
     point_strictly_inside_interval,
-    point_ends_interval,
-    point_after_interval,
-    point_in_interval,
+    precedes,
+    starts,
+    starts_with,
 )
 
 # Interval Relations
@@ -158,7 +159,7 @@ def relates(
         case list() as relations:
             return functools.reduce(
                 operator.or_,
-                map(lambda rel: relates(a, b, rel), relations),
+                (relates(a, b, rel) for rel in relations),
                 False,
             )
         case _ as unreachable:
@@ -206,49 +207,11 @@ def point_relates(
         case list() as relations:
             return functools.reduce(
                 operator.or_,
-                map(lambda rel: point_relates(point, interval, rel), relations),
+                (point_relates(point, interval, rel) for rel in relations),
                 False,
             )
         case _ as unreachable:
             typing.assert_never(unreachable)
-
-
-# Interval and Point Operations
-# =============================
-
-
-# TODO:
-# - move to pandas_interval_types
-# - handle empty-interval case correctly
-# - handle broadcasting types correctly (currently only checks a)
-def intersection(
-    a: Interval | IntervalArray, b: Interval | IntervalArray
-) -> Interval | IntervalArray:
-    """Returns the intersection of intervals a and b."""
-    if isinstance(a, Interval):
-        return Interval(np.maximum(a.left, b.left), np.minimum(a.right, b.right))
-    elif isinstance(a, IntervalArray):
-        return IntervalArray.from_arrays(
-            np.maximum(a.left, b.left), np.minimum(a.right, b.right)
-        )
-    else:
-        typing.assert_never(a)
-
-
-# def translate(
-#     interval: Interval | IntervalArray, offset: Any
-# ) -> Interval | IntervalArray:
-#     """Shift an interval by a given amount."""
-#     return map_interval(lambda t: t + offset, interval)
-
-
-# def scale(interval: Interval | IntervalArray, factor: Any) -> Interval | IntervalArray:
-#     """
-#     Scale the time axis of an interval.
-
-#     This simply multiplies the boundaries of `interval` by `factor`.
-#     """
-#     return map_interval(lambda t: t * factor, interval)
 
 
 # Merge Functions

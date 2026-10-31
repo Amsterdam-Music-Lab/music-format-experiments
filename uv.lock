@@ -802,7 +802,7 @@ wheels = [
 
 [[package]]
 name = "ipython"
-version = "9.17.1"
+version = "9.18.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
@@ -811,14 +811,14 @@ dependencies = [
     { name = "matplotlib-inline" },
     { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
     { name = "prompt-toolkit" },
-    { name = "psutil", marker = "sys_platform != 'cygwin' and sys_platform != 'emscripten'" },
+    { name = "psutil", marker = "sys_platform != 'android' and sys_platform != 'cygwin' and sys_platform != 'emscripten'" },
     { name = "pygments" },
     { name = "stack-data" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/32/99451b1283ec5d92ad77073f12e1c667dc10775384d8f15c2914207149dd/ipython-9.17.1.tar.gz", hash = "sha256:8919be8c27f20a6f4423145028063f6637b42a03ce57665bb12015ee1f073529", size = 4539289, upload-time = "2026-09-01T08:29:32.6Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/9d/fea7fe7e360b6a4992f00600445849374675d82d665ffc194aee50c314ab/ipython-9.18.0.tar.gz", hash = "sha256:93ec98e27d5ce494c962758111c7dff1ef45f9efdd55604ae70a7d4cabb3e1ea", size = 4436921, upload-time = "2026-10-30T08:33:14.247Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/1e/65b59cf518c106aa755e7f7da3099027738687a862ec785060702a481320/ipython-9.17.1-py3-none-any.whl", hash = "sha256:6d1645743cfd1a07eb695d85aa2b5fa66721f8cbae9431d4049f7084bbf06509", size = 639038, upload-time = "2026-09-01T08:29:30.673Z" },
+    { url = "https://files.pythonhosted.org/packages/55/7e/61834f817d193fe48ebe4bf1f9bb24c145143423db019897387c30c8f80a/ipython-9.18.0-py3-none-any.whl", hash = "sha256:d9b8e19267e811cafbc9d72e794a130c3fc60518108d20f5e1f05dae74f619ec", size = 649604, upload-time = "2026-10-30T08:33:12.016Z" },
 ]
 
 [[package]]
@@ -1644,7 +1644,7 @@ wheels = [
 
 [[package]]
 name = "notebook"
-version = "7.6.3"
+version = "7.6.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-builder" },
@@ -1654,9 +1654,9 @@ dependencies = [
     { name = "notebook-shim" },
     { name = "tornado" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/ac/aedb759dc683dcd129f6c75271bab5eb23020b0f7969163c726343718e1e/notebook-7.6.3.tar.gz", hash = "sha256:e2c08e469c0ae20bb0b3214f0ab77e79653317a2f8e5b34c10361c66874a5b50", size = 5501618, upload-time = "2026-09-21T18:07:24.261Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/0c/17a9c9029b0b79153969231d534a6820192b59508f7d8cbab451478e6c71/notebook-7.6.4.tar.gz", hash = "sha256:8aec433e08811af5c8d0e8cff23bf5079d85fd2912cee162894933f26f443d9e", size = 5579554, upload-time = "2026-10-30T07:36:04.168Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/f7/907b98438cf00bdc4e296570058f29a347214bb42338a48e3b7eae58ae2a/notebook-7.6.3-py3-none-any.whl", hash = "sha256:ad7e0eb765fba836cd4a2ab0c7a3a26cde1d91665fbf6f533b6ae7b2de6d88d2", size = 5548452, upload-time = "2026-09-21T18:07:21.563Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/23/0c29eb93adccca4dda803617ded4a93d4672929eb2b35e0bde7f066680d9/notebook-7.6.4-py3-none-any.whl", hash = "sha256:15e8a5eefb01f198016f11616426db0486f24404bfa869ec276d5ff8311b533c", size = 5626426, upload-time = "2026-10-30T07:36:01.352Z" },
 ]
 
 [[package]]
@@ -1788,7 +1788,7 @@ dependencies = [
 [[package]]
 name = "pandas-interval-types"
 version = "0.0.1"
-source = { git = "https://github.com/Amsterdam-Music-Lab/pandas-interval-types#01b0d6c37e18845d4b39c9f50030c4bd5be1a3e3" }
+source = { git = "https://github.com/Amsterdam-Music-Lab/pandas-interval-types#b459486ca20152224558a8242ab421d93413d383" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
@@ -1796,14 +1796,14 @@ dependencies = [
 
 [[package]]
 name = "pandas-stubs"
-version = "3.0.5.260914"
+version = "3.1.0.261029"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c1/93/8948ae6c1e1e3d6833596fd266f7be2d27c1451b8be094975ad42c5e842e/pandas_stubs-3.0.5.260914.tar.gz", hash = "sha256:3f6fc1f147f68fd89c007105e7c94a948acb4ecd7eb20dc1c02e153c4ed5c250", size = 117622, upload-time = "2026-09-14T16:42:35.065Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/f8/0346629264426a6693affbc9a0fb52143acfa38112d569f68da514ea503a/pandas_stubs-3.1.0.261029.tar.gz", hash = "sha256:dcfb5b14d399beae72cce558db6d2a0d89c10301275557f1c00d5393e9cb190e", size = 119466, upload-time = "2026-10-29T17:09:31.352Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/cb/5ad79e02a556cc23fed5816de0109fa8af660c66cfa5f4af74c3e8d4cd26/pandas_stubs-3.0.5.260914-py3-none-any.whl", hash = "sha256:39a1300c5c5c55fdf609e3476805decce5d5015539a4dcb683449f8feaeee2fb", size = 177344, upload-time = "2026-09-14T16:42:33.771Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/2c/ecbc04b2a8d05d737351a54398f843223cb66edf42ec5c0fcc6198f17d3a/pandas_stubs-3.1.0.261029-py3-none-any.whl", hash = "sha256:70f631f2d0781c4500b1cd5f84cab7d7279a3d114674d69655536a4a99a3a67f", size = 179851, upload-time = "2026-10-29T17:09:30.112Z" },
 ]
 
 [[package]]
