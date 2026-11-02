@@ -23,7 +23,7 @@ def parse_key(key):
     return {"root": pt.IntervalClass(root), "mode": mode}
 
 
-TYPE_PARSERS = {
+SPINE_TYPES: dict[str, SpineType] = {
     "pitch": SpineType("spans", lambda p: {"pitch": pt.SpelledPitch(p)}),
     "pitch_class": SpineType("spans", lambda p: {"pitch": pt.SpelledPitchClass(p)}),
     "interval": SpineType("spans", lambda i: {"interval": pt.SpelledInterval(i)}),
@@ -111,8 +111,13 @@ def parse_time_column(col: pd.Series, time_type: str):
 
 
 def df_to_score(
-    df: pd.DataFrame, header: dict[str, Any], keep_tokens: bool
+    df: pd.DataFrame,
+    header: dict[str, Any],
+    keep_tokens: bool,
+    extra_types: dict[str, SpineType],
 ) -> comu.Score:
+    spine_types = SPINE_TYPES | extra_types
+
     # parse time
     df_durations = pd.DataFrame()
     df_data = pd.DataFrame()
@@ -126,12 +131,12 @@ def df_to_score(
 
             durations_str = spine_parts["dur"].replace("", None)
             durations = parse_time_column(durations_str, header["time"]["type"])
-            spine_type = TYPE_PARSERS.get(
+            spine_type = spine_types.get(
                 header["spines"].get(spine_name, {}).get("type")
             )
             event_type = (
-                TYPE_PARSERS[spine_type].event_type
-                if spine_type in TYPE_PARSERS
+                spine_types[spine_type].event_type
+                if spine_type in spine_types
                 else None
             )
             if (not durations.isna().all()) or (event_type == "spans"):
@@ -164,9 +169,9 @@ def df_to_score(
         if "type" in header["spines"].get(spine, {}):
             # try to parse
             spine_type = header["spines"][spine]["type"]
-            if spine_type in TYPE_PARSERS:
-                event_type = TYPE_PARSERS[spine_type].event_type
-                parser = TYPE_PARSERS[spine_type].parse
+            if spine_type in spine_types:
+                event_type = spine_types[spine_type].event_type
+                parser = spine_types[spine_type].parse
                 if parser:
                     parsed = event_df["token"].apply(lambda a: pd.Series(parser(a)))
                     event_df = pd.concat([event_df, parsed], axis=1)
@@ -206,12 +211,18 @@ def df_to_score(
     return score
 
 
-def read_comu(input_str, keep_tokens=True) -> comu.Score:
+def read_comu(
+    input_str: str,
+    keep_tokens: bool = True,
+    extra_types: dict[str, SpineType] | None = None,
+) -> comu.Score:
     """
     Read a string in comu notation.
 
     This is a very rough sketch of a possible notation.
     """
+    if not extra_types:
+        extra_types = {}
 
     # parse header
     buf = io.StringIO(input_str.strip())
@@ -227,7 +238,7 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
 
     # read table
     df = pd.read_table(buf, dtype=str)
-    return df_to_score(df, header, keep_tokens=keep_tokens)
+    return df_to_score(df, header, keep_tokens=keep_tokens, extra_types=extra_types)
 
 
 EXAMPLE = """
