@@ -1,24 +1,26 @@
-import pandas as pd
+import operator
+from collections import UserDict
+from collections.abc import Callable, Generator
+from typing import Any
+
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import pandas_interval_types as pi
 from pandas_interval_types import Interval, IntervalArray
+
 from .interval_relations import (
     IntervalRelations,
     PointIntervalRelations,
-    relates,
-    point_relates,
     intersection,
-    merge_on_intervals,
-    merge_intervals_points,
-    merge_points_intervals,
     merge_by_relation,
+    merge_intervals_points,
+    merge_on_intervals,
+    merge_points_intervals,
+    point_relates,
+    relates,
 )
-import matplotlib.pyplot as plt
-import typing
-from typing import Optional, Any, Callable
-import operator
-from collections import UserDict
 
 
 @pd.api.extensions.register_dataframe_accessor("as_points")
@@ -63,7 +65,7 @@ class PointEvents:
         for _, row in self.events.iterrows():
             ax.text(row["onset"], label, f" {row.iloc[1]}", va="center")
 
-    def map_time(self, f: Callable) -> "PointEvents":
+    def map_time(self, f: Callable) -> PointEvents:
         """
         Maps a function over the time axis of these events.
 
@@ -87,10 +89,10 @@ class PointEvents:
 
     def merge_with_points(
         self,
-        right_events: "PointEvents",
+        right_events: PointEvents,
         right_label: str | None = None,
         by: Callable = operator.__eq__,
-    ) -> "PointEvents":
+    ) -> PointEvents:
         """merge with intersecting point events."""
         right_label = right_label or right_events.name or "right"
         merged = merge_by_relation(
@@ -105,10 +107,10 @@ class PointEvents:
 
     def merge_with_spans(
         self,
-        right_events: "SpanEvents",
+        right_events: SpanEvents,
         right_label: str | None = None,
         by: PointIntervalRelations = "in",
-    ) -> "PointEvents":
+    ) -> PointEvents:
         right_label = right_label or right_events.name or "right"
         merged = merge_points_intervals(
             self.events,
@@ -171,7 +173,7 @@ class SpanEvents:
             self.events.assign(onset=self.events["span"].array.left), self.name
         )
 
-    def map_time(self, f: Callable) -> "SpanEvents":
+    def map_time(self, f: Callable) -> SpanEvents:
         """
         Maps a function over the time axis of these events.
 
@@ -209,7 +211,7 @@ class SpanEvents:
         right_events: PointEvents,
         right_label: str | None = None,
         by: PointIntervalRelations = "in",
-    ) -> "SpanEvents":
+    ) -> SpanEvents:
         right_label = right_label or right_events.name or "right"
         merged = merge_intervals_points(
             self.events,
@@ -223,10 +225,10 @@ class SpanEvents:
 
     def merge_with_spans(
         self,
-        right_events: "SpanEvents",
+        right_events: SpanEvents,
         right_label: str | None = None,
         by: IntervalRelations = "intersects",
-    ) -> "SpanEvents":
+    ) -> SpanEvents:
         right_label = right_label or right_events.name or "right"
         merged = merge_on_intervals(
             self.events,
@@ -303,7 +305,7 @@ class StateEvents:
         span_events = self._events.assign(span=spans)  # .drop("onset", axis=1)
         return SpanEvents(span_events, self.name)
 
-    def map_time(self, f: Callable) -> "StateEvents":
+    def map_time(self, f: Callable) -> StateEvents:
         """
         Maps a function over the time axis of these events.
 
@@ -317,10 +319,7 @@ class StateEvents:
 Events = PointEvents | SpanEvents | StateEvents
 
 
-E = typing.TypeVar("E", bound=Events)
-
-
-def _set_name(events: E, name: str) -> E:
+def _set_name[E: Events](events: E, name: str) -> E:
     """
     Sets the `name` attribute for an event series.
 
@@ -340,39 +339,43 @@ class Score(UserDict[str, Events]):
 
     def __init__(
         self,
-        init: Optional[dict[str, Events]] = None,
-        header: dict[str, Any] = {},
+        init: dict[str, Events] | None = None,
+        header: dict[str, Any] | None = None,
         **kwargs: Events,
     ):
         if init:
             super().__init__(init, **kwargs)
         else:
             super().__init__(**kwargs)
-        self.header = header
+        self.header = header or {}
 
-    def __setitem__(self, key, value):
-        if isinstance(value, Events):
-            value = _set_name(value, key)
-            super().__setitem__(key, value)
+    def __setitem__(self, key, item):
+        if isinstance(item, Events):
+            item = _set_name(item, key)
+            super().__setitem__(key, item)
         else:
-            raise TypeError(f"A score cannot store spines of type {type(value)}")
+            raise TypeError(f"A score cannot store spines of type {type(item)}")
 
     def __repr__(self):
         """Print a score."""
         parts = ["-" + key + ": " + repr(value) for key, value in self.items()]
         return "Score:\n" + "\n".join(parts)
 
-    def plot(self, ax=None, **fig_args):
+    def plot(self, spines=None, ax=None, **fig_args):
         """Plot a score."""
+        if spines:
+            spines = [s for s in spines if s in self]
+        else:
+            spines = list(self.keys())
         if ax is None:
             if "figsize" not in fig_args:
-                fig_args["figsize"] = (6.4, 0.6 * len(self))
+                fig_args["figsize"] = (6.4, 0.6 * len(spines))
             fig, ax = plt.subplots(**fig_args)
         else:
             fig = None
 
-        for label, events in self.items():
-            events.add_to_plot(ax, label)
+        for label in spines:
+            self[label].add_to_plot(ax, label)
         return fig
 
     @property
@@ -380,7 +383,15 @@ class Score(UserDict[str, Events]):
         latest = [events.end for events in self.values()]
         return max(latest)
 
-    def map_time(self, f: Callable) -> "Score":
+    def spines_by_type(self, stype: str) -> list[tuple[str, Events]]:
+        meta = self.header.get("spines", {})
+        return [
+            (name, spine)
+            for name, spine in self.items()
+            if (meta.get(name, {}).get("type") == stype)
+        ]
+
+    def map_time(self, f: Callable) -> Score:
         """
         Maps a function over the time axis of these events.
 

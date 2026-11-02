@@ -1,0 +1,43 @@
+---
+[meta]
+title = "O Heiland, reiß die Himmel auf"
+composer = "Hugo Distler"
+year = 1933
+collection = "Der Jahrkreis"
+
+[spines]
+meter_sop1.type = "meter"
+meter_sop2.type = "meter"
+meter_alto.type = "meter"
+
+[spines.sop1]
+type = "pitch"
+meter = "meter_sop1"
+
+[spines.sop2]
+type = "pitch"
+meter = "meter_sop2"
+
+[spines.alto]
+type = "pitch"
+meter = "meter_alto"
+---
+time	alto	text(alto)	meter_alto	sop2	text(sop2)	meter_sop2	sop1	text(sop1)	meter_sop1
+4	4:A3	O	:3/4:4	.	.	:2/4:4	.	.	:2+2/4:4
+4	2:C4	Hei-	.	.	.	.	.	.	.
+4	.	.	.	4:D4	O	.	.	.	.
+4	4:D4	-land,	.	2:F4	Hei-	3/4	.	.	.
+4	2:E4	reiß	.	.	.	.	4:A4	O	.
+4	.	.	.	4:G4	-land,	.	2:C5	Hei-	3/4
+4	4:A3	die	.	2:A4	reiß	.	.	.	.
+4	4:C4	Him-	.	.	.	.	4:D5	-land,	.
+4	2:B3	-mel	.	4:D4	die	.	4:E5	reiß	2/4
+4	.	.	.	4:F4	Him-	2+2/4	4:A4	die	.
+4	2:A3	auf,	.	4.:E4	.	.	4:C5	Him-	6/4
+8	.	.	.	.	.	.	4.:B4	.	.
+8	.	.	.	8:D4	.	.	.	.	.
+8	.	.	.	4:E4	-mel	.	.	.	.
+8	.	.	.	.	.	.	8:C5	.	.
+4	4:B3	her-	.	2:D4	auf,	3/4	4:D5	.	.
+4	4:B3	-ab,	.	.	.	.	2:B3	-mel	.
+4	4:C4	her-	.	.	.	.	.	.	.

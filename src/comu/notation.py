@@ -1,14 +1,21 @@
-import pandas as pd
-from pandas_fractions import FractionArray
-from pandas_interval_types import Interval, IntervalArray
-import numpy as np
-import comu
 import io
-import tomllib
-import pitchtypes as pt
-from typing import Any
 import re
+import tomllib
+from collections.abc import Callable
 from fractions import Fraction
+from typing import Any, Literal, NamedTuple
+
+import pandas as pd
+import pitchtypes as pt
+from pandas_fractions import FractionArray
+from pandas_interval_types import IntervalArray
+
+import comu
+
+
+class SpineType(NamedTuple):
+    event_type: Literal["points", "spans", "states"] | None
+    parse: Callable[[str], Any] | None
 
 
 def parse_key(key):
@@ -17,11 +24,14 @@ def parse_key(key):
 
 
 TYPE_PARSERS = {
-    "pitch": lambda p: {"pitch": pt.SpelledPitch(p)},
-    "pitch_class": lambda p: {"pitch": pt.SpelledPitchClass(p)},
-    "interval": lambda i: {"interval": pt.SpelledInterval(i)},
-    "interval_class": lambda i: {"interval": pt.SpelledIntervalClass(i)},
-    "key": parse_key,
+    "pitch": SpineType("spans", lambda p: {"pitch": pt.SpelledPitch(p)}),
+    "pitch_class": SpineType("spans", lambda p: {"pitch": pt.SpelledPitchClass(p)}),
+    "interval": SpineType("spans", lambda i: {"interval": pt.SpelledInterval(i)}),
+    "interval_class": SpineType(
+        "spans", lambda i: {"interval": pt.SpelledIntervalClass(i)}
+    ),
+    "key": SpineType("states", parse_key),
+    "meter": SpineType("states", None),
 }
 
 
@@ -107,19 +117,27 @@ def df_to_score(
     df_durations = pd.DataFrame()
     df_data = pd.DataFrame()
     explicit_time: pd.Series | None = None
-    for column in df.columns:
-        if column == "time":
+    for spine_name in df.columns:
+        if spine_name == "time":
             explicit_time = parse_time_column(df["time"], header["time"]["type"])
-        elif isinstance(df[column].dtype, pd.StringDtype) and ("(" not in column):
-            col_parts = df[column].str.extract(r"((?P<dur>[^:]*):)?(?P<data>.*)")
-            df_data[column] = col_parts["data"]
+        elif "(" not in spine_name:
+            spine_parts = df[spine_name].str.extract(r"((?P<dur>[^:]*):)?(?P<data>.*)")
+            df_data[spine_name] = spine_parts["data"]
 
-            durations_str = col_parts["dur"].replace("", None)
+            durations_str = spine_parts["dur"].replace("", None)
             durations = parse_time_column(durations_str, header["time"]["type"])
-            if not durations.isna().all():
-                df_durations[column] = durations
+            spine_type = TYPE_PARSERS.get(
+                header["spines"].get(spine_name, {}).get("type")
+            )
+            event_type = (
+                TYPE_PARSERS[spine_type].event_type
+                if spine_type in TYPE_PARSERS
+                else None
+            )
+            if (not durations.isna().all()) or (event_type == "spans"):
+                df_durations[spine_name] = durations
         else:
-            df_data[column] = df[column]
+            df_data[spine_name] = df[spine_name]
 
     # determine onsets:
     record_durations = (
@@ -128,51 +146,62 @@ def df_to_score(
     onsets = record_durations.cumsum() - record_durations
 
     # collect primary columns as event series
-    primary_columns = [c for c in df.columns if ("(" not in c) and (c != "time")]
+    primary_spines = [
+        name for name in df.columns if ("(" not in name) and (name != "time")
+    ]
     score = comu.Score(header=header)
 
-    for col in primary_columns:
-        data = df_data[col]
+    for spine in primary_spines:
+        # create dataframe with non-null tokens
+        data = df_data[spine]
         mask = data != "."
         event_df = pd.DataFrame({"token": data[mask]})
+        event_type = None  # the annotated event type in the metadata
 
-        # if type is known, parse tokens
-        if col in header["spines"] and "type" in header["spines"][col]:
+        # if type is known:
+        # - if has parser: parse tokens and add new columns
+        # - otherwise: copy "tokens" to column with type name
+        if "type" in header["spines"].get(spine, {}):
             # try to parse
-            col_type = header["spines"][col]["type"]
-            if col_type in TYPE_PARSERS:
-                parser = TYPE_PARSERS[col_type]
-                parsed = event_df["token"].apply(lambda a: pd.Series(parser(a)))
-                event_df = pd.concat([event_df, parsed], axis=1)
+            spine_type = header["spines"][spine]["type"]
+            if spine_type in TYPE_PARSERS:
+                event_type = TYPE_PARSERS[spine_type].event_type
+                parser = TYPE_PARSERS[spine_type].parse
+                if parser:
+                    parsed = event_df["token"].apply(lambda a: pd.Series(parser(a)))
+                    event_df = pd.concat([event_df, parsed], axis=1)
+                else:
+                    event_df[spine_type] = event_df["token"]
             else:
-                event_df[col_type] = event_df["token"]
+                event_df[spine_type] = event_df["token"]
 
             # drop tokens column?
             if not keep_tokens:
                 event_df = event_df.drop("token", axis=1)
 
-        # add secondary columns
-        for other_col in [c for c in df.columns if f"({col})" in c]:
-            sub_col = other_col.split("(")[0]
-            event_df[sub_col] = df_data[other_col][mask]
+        # add secondary spines as local columns
+        for other_spine in [c for c in df.columns if f"({spine})" in c]:
+            sub_col_name = other_spine.split("(")[0]
+            event_df[sub_col_name] = df_data[other_spine][mask]
 
         # add time and create events object
-        if col in df_durations.columns:
-            # has duration: span events
-            offsets = onsets[mask] + df_durations[col][mask]
-            event_df.insert(
-                0,
-                "span",
-                pd.Series(
-                    IntervalArray.from_arrays(onsets[mask], offsets),
-                    onsets[mask].index,
-                ),
+        if (event_type == "spans") or (
+            (not event_type) and (spine in df_durations.columns)
+        ):
+            # has duration or marked as spans: span events
+            offsets = onsets[mask] + df_durations[spine][mask]
+            spans = pd.Series(
+                IntervalArray.from_arrays(onsets[mask], offsets), onsets[mask].index
             )
-            score[col] = comu.SpanEvents(event_df.reset_index(drop=True))
+            event_df.insert(0, "span", spans)
+            score[spine] = comu.SpanEvents(event_df.reset_index(drop=True))
         else:
-            # has no duration: point events
+            # has no duration: point or state events
             event_df.insert(0, "onset", onsets[mask])
-            score[col] = comu.PointEvents(event_df.reset_index(drop=True))
+            if event_type == "states":
+                score[spine] = comu.StateEvents(event_df.reset_index(drop=True))
+            else:
+                score[spine] = comu.PointEvents(event_df.reset_index(drop=True))
 
     return score
 
@@ -197,7 +226,7 @@ def read_comu(input_str, keep_tokens=True) -> comu.Score:
         buf.seek(0)
 
     # read table
-    df = pd.read_table(buf, dtype={"time": str})
+    df = pd.read_table(buf, dtype=str)
     return df_to_score(df, header, keep_tokens=keep_tokens)
 
 
